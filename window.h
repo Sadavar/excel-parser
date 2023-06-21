@@ -21,10 +21,14 @@ signals:
 private slots:
     void importClicked();
     void rowEntered();
+    void projectColumnEntered();
+    void projectNumberEntered();
 private:
     // Widgets
     QPushButton *import_button;
     QLineEdit *row_input;
+    QLineEdit *project_column_input;
+    QLineEdit *project_number_input;
     QTableWidget *display;
     QLabel *import_progress;
     // Variables
@@ -35,6 +39,8 @@ private:
     int row_dimension;
     int col_dimension;
     bool is_import_loading;
+    int project_column_number;
+    QString project_number;
 };
 
 #endif // WINDOW_H

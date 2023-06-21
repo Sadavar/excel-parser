@@ -32,12 +32,13 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     setWindowTitle("Excel Parser");
 
     // Create import button
-    import_button = new QPushButton("Import File");
+    import_button = new QPushButton("  Import File");
     import_button->setObjectName("import_button");
     import_button->setCheckable(true);
     import_button->setFixedHeight(50);
-    import_button->setMinimumWidth(350);
-    import_button->setMaximumWidth(1000);
+    import_button->setMinimumWidth(250);
+    import_button->setMaximumWidth(550);
+    import_button->setIcon(QIcon(":/upload_icon.png"));
 
     // Create import progress label
     import_progress = new QLabel("Importing...");
@@ -48,15 +49,25 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     row_input = new QLineEdit();
     row_input->setPlaceholderText("2,5,8");
 
+    // Create project column input
+    auto project_column_input_label = new QLabel("Project Column Letter:");
+    project_column_input = new QLineEdit();
+    project_column_input->setPlaceholderText("5");
+    //Create project number input
+    auto project_number_input_label = new QLabel("Project Number:");
+    project_number_input = new QLineEdit();
+    project_number_input->setPlaceholderText("A21-1639");
+
     // Create table
     display = new QTableWidget();
     display->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     display->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
 
-    //Creating layout
+    //Creating layouts
     auto main_layout = new QVBoxLayout(this);
     auto import_layout = new QVBoxLayout();
     auto row_input_layout = new QHBoxLayout();
+    auto project_input_layout = new QHBoxLayout();
     auto table_layout = new QHBoxLayout();
 
     import_layout->addWidget(import_button, 0, Qt::AlignCenter);
@@ -65,12 +76,17 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     row_input_layout->addWidget(row_label);
     row_input_layout->addWidget(row_input);
 
+    project_input_layout->addWidget(project_column_input_label);
+    project_input_layout->addWidget(project_column_input);
+    project_input_layout->addWidget(project_number_input_label);
+    project_input_layout->addWidget(project_number_input);
+
     table_layout->addWidget(display);
 
     main_layout->addLayout(import_layout);
     main_layout->addLayout(row_input_layout);
+    main_layout->addLayout(project_input_layout);
     main_layout->addLayout(table_layout);
-//    display->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
     setLayout(main_layout);
 
@@ -78,6 +94,10 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     connect(import_button, SIGNAL(clicked()), this, SLOT(importClicked()));
     // row input signal
     connect(row_input, SIGNAL(returnPressed()), this, SLOT(rowEntered()));
+    // project column input signal
+    connect(project_column_input, SIGNAL(returnPressed()), this, SLOT(projectColumnEntered()));
+    // project number input signal
+    connect(project_number_input, SIGNAL(returnPressed()), this, SLOT(projectNumberEntered()));
 }
 
 void Window::importClicked() {
@@ -144,13 +164,14 @@ void Window::rowEntered() {
     std::string row_string =  row_input->text().toStdString();
     // input validation
     std::string temp = row_string;
-    if(temp == "") return;
+    if(temp.empty()) return;
     if(temp.find_first_not_of("0123456789, ") != std::string::npos)
     {
        qDebug() << "invalid input: " << row_string;
        QMessageBox row_input_error(this);
-       row_input_error.setText("Invalid Row IDs");
+       row_input_error.setText("Invalid row input");
        row_input_error.setIcon(QMessageBox::Warning);
+       row_input_error.setStandardButtons(QMessageBox::Ok);
        row_input_error.exec();
        return;
     }
@@ -160,12 +181,14 @@ void Window::rowEntered() {
     while(ss.good()) {
        std::string substr;
        getline(ss, substr, ',');
-       if(substr =="") continue;
+       //check if the substring is just spaces (eg. 2,5, )
+       if(substr.find_first_not_of(' ') == std::string::npos) continue;
        int id = stoi(substr);
        if(id > row_dimension || id < 1) {
             QMessageBox row_input_error(this);
-            row_input_error.setText("Row ID is out of range");
+            row_input_error.setText("Row input is out of range");
             row_input_error.setIcon(QMessageBox::Warning);
+            row_input_error.setStandardButtons(QMessageBox::Ok);
             row_input_error.exec();
             return;
        }
@@ -195,6 +218,35 @@ void Window::parseRow() {
     }
 
     if(display->isHidden()) display->show();
+}
+
+void Window::projectColumnEntered() {
+    std::string input =  project_column_input->text().toStdString();
+    if(input.empty()) return;
+    if(input.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ") != std::string::npos) {
+        QMessageBox error(this);
+        error.setText("Invalid project column input");
+        error.setIcon(QMessageBox::Warning);
+        error.setStandardButtons(QMessageBox::Ok);
+        error.exec();
+        return;
+    }
+    qDebug() << "input: " << input;
+
+    // Convert column letter to column number (e.g. AB = 27)
+    const char *colstr= input.c_str();
+    int i, col=0;
+    for(i=0; i< (int)input.size(); i++) {
+        col = 26*col + colstr[i] - 'A' + 1;
+    }
+    qDebug() << "col: " << col;
+    project_column_number = col;
+}
+
+void Window::projectNumberEntered() {
+    QString input =  project_number_input->text();
+    if(input.isEmpty()) return;
+    project_number = input;
 }
 
 

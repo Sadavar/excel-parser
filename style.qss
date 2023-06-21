@@ -16,6 +16,7 @@ QLineEdit::placeholder {
   color: #767e89;
 }
 QPushButton#import_button {
+
   background-color: #102B50;
   color: #fff;
   font-weight: 600;
@@ -25,8 +26,8 @@ QPushButton#import_button {
   margin-top: 10px;
   outline: 0px;
 }
-QPushButton:hover,
-QPushButton:focus {
+QPushButton#import_button:hover,
+QPushButton#import_button:focus {
   background-color: #0c203b;
   border: 3px solid #0c203b;
 }
@@ -125,6 +126,18 @@ background: none;
 
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical, QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
 background: none;
+}
+
+QMessageBox QPushButton {
+background-color: #102B50;
+color: #fff;
+font-weight: 600;
+border-radius: 8px;
+border: 1px solid #102B50;
+padding: 5px 15px;
+margin-top: 10px;
+outline: 0px;
+min-width: 40px;
 }
 
 
