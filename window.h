@@ -14,6 +14,7 @@ class Window : public QWidget {
 public:
     explicit Window(QWidget *parent = 0);
     void parseRow();
+    void parseProject();
     void loadExcel();
      void importLoadingAnimation();
 signals:
@@ -29,7 +30,8 @@ private:
     QLineEdit *row_input;
     QLineEdit *project_column_input;
     QLineEdit *project_number_input;
-    QTableWidget *display;
+    QTableWidget *row_display;
+    QTableWidget *project_display;
     QLabel *import_progress;
     // Variables
     QString file_path;
@@ -39,6 +41,7 @@ private:
     int row_dimension;
     int col_dimension;
     bool is_import_loading;
+    bool has_entered_column;
     int project_column_number;
     QString project_number;
 };

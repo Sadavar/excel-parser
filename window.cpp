@@ -58,10 +58,15 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     project_number_input = new QLineEdit();
     project_number_input->setPlaceholderText("A21-1639");
 
-    // Create table
-    display = new QTableWidget();
-    display->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    display->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    // Create Row ID Table
+    row_display = new QTableWidget();
+    row_display->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    row_display->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+
+    // Create Project Table
+    project_display = new QTableWidget();
+    project_display->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    project_display->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
 
     //Creating layouts
     auto main_layout = new QVBoxLayout(this);
@@ -81,7 +86,8 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     project_input_layout->addWidget(project_number_input_label);
     project_input_layout->addWidget(project_number_input);
 
-    table_layout->addWidget(display);
+    table_layout->addWidget(row_display);
+    table_layout->addWidget(project_display);
 
     main_layout->addLayout(import_layout);
     main_layout->addLayout(row_input_layout);
@@ -98,6 +104,8 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     connect(project_column_input, SIGNAL(returnPressed()), this, SLOT(projectColumnEntered()));
     // project number input signal
     connect(project_number_input, SIGNAL(returnPressed()), this, SLOT(projectNumberEntered()));
+
+    has_entered_column = false;
 }
 
 void Window::importClicked() {
@@ -200,24 +208,22 @@ void Window::rowEntered() {
 }
 
 void Window::parseRow() {
-    display->setRowCount(col_dimension);
-    display->setColumnCount(row_ids.size()+1);
-    display->clearContents();
+    row_display->setRowCount(col_dimension);
+    row_display->setColumnCount(row_ids.size()+1);
+    row_display->clearContents();
 
     // Display Headers
     for(int i = 0; i <col_dimension; i++) {
         QTableWidgetItem *item = new QTableWidgetItem(table[0][i]);
-        display->setItem(i, 0, item);
+        row_display->setItem(i, 0, item);
     }
     // Display Row Data
     for(int i = 0; i < row_ids.size(); i++) {
         for(int j = 0; j <col_dimension; j++) {
             QTableWidgetItem *item = new QTableWidgetItem(table[row_ids[i]-1][j]);
-            display->setItem(j, i+1, item);
+            row_display->setItem(j, i+1, item);
         }
     }
-
-    if(display->isHidden()) display->show();
 }
 
 void Window::projectColumnEntered() {
@@ -241,12 +247,51 @@ void Window::projectColumnEntered() {
     }
     qDebug() << "col: " << col;
     project_column_number = col;
+    has_entered_column = true;
 }
 
 void Window::projectNumberEntered() {
+    if(table.empty() || !has_entered_column) return;
     QString input =  project_number_input->text();
     if(input.isEmpty()) return;
-    project_number = input;
+
+    // Delete trailing whitespace
+    std::string input_string = input.toStdString();
+    const char* WhiteSpace = " \t\v\r\n";
+    std::size_t end = input_string.find_last_not_of(WhiteSpace);
+    input_string = input_string.substr(0, end+1);
+    qDebug() << "original: " << input;
+    qDebug() << "after: " << input_string;
+
+    project_number = QString::fromStdString(input_string);
+    parseProject();
+}
+
+void Window::parseProject() {
+    project_display->setRowCount(col_dimension);
+    project_display->setColumnCount(row_dimension);
+    project_display->clearContents();
+
+    // Display headers
+    for(int i = 0; i < col_dimension; i++) {
+        QTableWidgetItem *item = new QTableWidgetItem(table[0][i]);
+        project_display->setItem(i, 0, item);
+    }
+
+    // Display matching project numbers
+    int match_counter = 0;
+    int col = project_column_number - 1;
+    for(int i =0; i < row_dimension; i++) {
+        QString val = table[i][col];
+        if(val == project_number) {
+            for(int j = 0; j < col_dimension; j++) {
+                QTableWidgetItem *item = new QTableWidgetItem(table[i][j]);
+                project_display->setItem(j, match_counter + 1, item);
+            }
+            ++match_counter;
+        }
+    }
+    project_display->setColumnCount(match_counter + 1);
 }
 
 
