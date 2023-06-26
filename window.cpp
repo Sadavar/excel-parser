@@ -15,6 +15,9 @@
 #include <QDebug>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QSpacerItem>
+#include <QListWidget>
+#include <QListWidgetItem>
 
 
 #include <filesystem>
@@ -58,41 +61,61 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     project_number_input = new QLineEdit();
     project_number_input->setPlaceholderText("A21-1639");
 
+    //Create filter
+    filter = new QListWidget();
+    filter->setSelectionMode(QAbstractItemView::MultiSelection);
+
     // Create Row ID Table
     row_display = new QTableWidget();
     row_display->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     row_display->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    row_display_label = new QLabel("Row Search");
+    row_display_label->setObjectName("row_display_label");
 
     // Create Project Table
     project_display = new QTableWidget();
     project_display->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     project_display->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    project_display_label = new QLabel("Project Search");
+    project_display_label->setObjectName("project_display_label");
 
     //Creating layouts
-    auto main_layout = new QVBoxLayout(this);
+    main_layout = new QVBoxLayout(this);
     auto import_layout = new QVBoxLayout();
     auto row_input_layout = new QHBoxLayout();
     auto project_input_layout = new QHBoxLayout();
     auto table_layout = new QHBoxLayout();
+    auto row_display_layout = new QVBoxLayout();
+    auto project_display_layout = new QVBoxLayout();
 
     import_layout->addWidget(import_button, 0, Qt::AlignCenter);
     import_layout->addWidget(import_progress, 0, Qt::AlignCenter);
 
     row_input_layout->addWidget(row_label);
-    row_input_layout->addWidget(row_input);
+    row_input_layout->addWidget(row_input, Qt::AlignTop);
 
     project_input_layout->addWidget(project_column_input_label);
     project_input_layout->addWidget(project_column_input);
     project_input_layout->addWidget(project_number_input_label);
     project_input_layout->addWidget(project_number_input);
 
-    table_layout->addWidget(row_display);
-    table_layout->addWidget(project_display);
+    row_display_layout->addWidget(row_display_label, 0, Qt::AlignCenter);
+    row_display_layout->addWidget(row_display);
+
+    project_display_layout->addWidget(project_display_label, 0, Qt::AlignCenter);
+    project_display_layout->addWidget(project_display);
+
+    table_layout->addLayout(row_display_layout);
+    table_layout->addLayout(project_display_layout);
 
     main_layout->addLayout(import_layout);
     main_layout->addLayout(row_input_layout);
     main_layout->addLayout(project_input_layout);
+    main_layout->addWidget(filter);
+    spacer = new QSpacerItem(30, 30, QSizePolicy::Expanding, QSizePolicy::Fixed);
+    main_layout->addItem(spacer);
     main_layout->addLayout(table_layout);
+
 
     setLayout(main_layout);
 
@@ -143,9 +166,15 @@ void Window::loadExcel() {
         for(int j = 1; j <= lastColumn; j++) {
             QString cell = doc.read(i, j).toString();
             data.push_back(cell);
+            if(i == 1) {
+                header_list.append(cell);
+            }
         }
         table.push_back(data);
     }
+    // add headers to filter
+    filter->addItems(header_list);
+
     is_import_loading = false;
     row_dimension = table.size();
     col_dimension =  table[0].size();
@@ -154,6 +183,7 @@ void Window::loadExcel() {
 void Window::importLoadingAnimation() {
     import_progress->setText("Importing " + file_name);
     import_progress->show();
+    this->update();
     while(is_import_loading) {
        import_progress->setText("Importing " + file_name);
        QThread::currentThread()->msleep(300);
@@ -165,14 +195,29 @@ void Window::importLoadingAnimation() {
        QThread::currentThread()->msleep(300);
     }
     import_progress->setText("Finished Importing " + file_name);
+    this->update();
 }
 
 void Window::rowEntered() {
-    if(table.empty()) return;
+    if(table.empty()) {
+       if(project_display->isHidden()) {
+            spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
+       }
+       row_display->hide();
+       row_display_label->hide();
+       return;
+    }
     std::string row_string =  row_input->text().toStdString();
     // input validation
     std::string temp = row_string;
-    if(temp.empty()) return;
+    if(temp.empty()) {
+       if(project_display->isHidden()) {
+            spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
+       }
+       row_display->hide();
+       row_display_label->hide();
+       return;
+    }
     if(temp.find_first_not_of("0123456789, ") != std::string::npos)
     {
        qDebug() << "invalid input: " << row_string;
@@ -184,6 +229,7 @@ void Window::rowEntered() {
        return;
     }
 
+    // Parsing input and adding it to row_ids vector
     row_ids.clear();
     std::stringstream ss(row_string);
     while(ss.good()) {
@@ -224,6 +270,13 @@ void Window::parseRow() {
             row_display->setItem(j, i+1, item);
         }
     }
+
+    spacer->changeSize(30, 30, QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+    if(row_display->isHidden()) {
+        row_display->show();
+        row_display_label->show();
+    }
 }
 
 void Window::projectColumnEntered() {
@@ -237,7 +290,6 @@ void Window::projectColumnEntered() {
         error.exec();
         return;
     }
-    qDebug() << "input: " << input;
 
     // Convert column letter to column number (e.g. AB = 27)
     const char *colstr= input.c_str();
@@ -245,15 +297,28 @@ void Window::projectColumnEntered() {
     for(i=0; i< (int)input.size(); i++) {
         col = 26*col + colstr[i] - 'A' + 1;
     }
-    qDebug() << "col: " << col;
     project_column_number = col;
     has_entered_column = true;
 }
 
 void Window::projectNumberEntered() {
-    if(table.empty() || !has_entered_column) return;
+    if(table.empty() || !has_entered_column) {
+        if(row_display->isHidden()) {
+            spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
+        }
+        project_display->hide();
+        project_display_label->hide();
+        return;
+    }
     QString input =  project_number_input->text();
-    if(input.isEmpty()) return;
+    if(input.isEmpty()) {
+        if(row_display->isHidden()) {
+            spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
+        }
+        project_display->hide();
+        project_display_label->hide();
+        return;
+    }
 
     // Delete trailing whitespace
     std::string input_string = input.toStdString();
@@ -292,6 +357,11 @@ void Window::parseProject() {
         }
     }
     project_display->setColumnCount(match_counter + 1);
+    spacer->changeSize(30, 30, QSizePolicy::Expanding, QSizePolicy::Fixed);
+    if(project_display->isHidden()) {
+        project_display->show();
+        project_display_label->show();
+    }
 }
 
 

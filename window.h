@@ -8,6 +8,9 @@ class QPushButton;
 class QLineEdit;
 class QTableWidget;
 class QLabel;
+class QVBoxLayout;
+class QSpacerItem;
+class QListWidget;
 
 class Window : public QWidget {
     Q_OBJECT
@@ -31,8 +34,13 @@ private:
     QLineEdit *project_column_input;
     QLineEdit *project_number_input;
     QTableWidget *row_display;
+    QLabel *row_display_label;
     QTableWidget *project_display;
+    QLabel *project_display_label;
     QLabel *import_progress;
+    QVBoxLayout *main_layout;
+    QSpacerItem *spacer;
+    QListWidget *filter;
     // Variables
     QString file_path;
     QString file_name;
@@ -44,6 +52,7 @@ private:
     bool has_entered_column;
     int project_column_number;
     QString project_number;
+    QStringList header_list;
 };
 
 #endif // WINDOW_H
