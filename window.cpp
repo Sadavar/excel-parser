@@ -18,6 +18,8 @@
 #include <QSpacerItem>
 #include <QListWidget>
 #include <QListWidgetItem>
+#include <QFrame>
+#include <QPainterPath>
 
 
 #include <filesystem>
@@ -31,7 +33,7 @@
 
 Window::Window(QWidget *parent) : QWidget(parent) {
     // Set window parameters
-    resize(350,200);
+    resize(420,200);
     setWindowTitle("Excel Parser");
 
     // Create import button
@@ -39,7 +41,7 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     import_button->setObjectName("import_button");
     import_button->setCheckable(true);
     import_button->setFixedHeight(50);
-    import_button->setMinimumWidth(250);
+    import_button->setMinimumWidth(200);
     import_button->setMaximumWidth(550);
     import_button->setIcon(QIcon(":/upload_icon.png"));
 
@@ -61,9 +63,15 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     project_number_input = new QLineEdit();
     project_number_input->setPlaceholderText("A21-1639");
 
-    //Create filter
+    // Create filter button
+    filter_button = new QPushButton("Filter Fields");
+    filter_button->setObjectName("filter_button");
+    filter_button->setFixedHeight(40);
+    filter_button->setMinimumWidth(100);
+    // Create filter
     filter = new QListWidget();
     filter->setSelectionMode(QAbstractItemView::MultiSelection);
+    filter->hide();
 
     // Create Row ID Table
     row_display = new QTableWidget();
@@ -107,14 +115,19 @@ Window::Window(QWidget *parent) : QWidget(parent) {
 
     table_layout->addLayout(row_display_layout);
     table_layout->addLayout(project_display_layout);
+    table_layout->setContentsMargins(-1,10,-1,-1);
 
     main_layout->addLayout(import_layout);
     main_layout->addLayout(row_input_layout);
     main_layout->addLayout(project_input_layout);
-    main_layout->addWidget(filter);
+
     spacer = new QSpacerItem(30, 30, QSizePolicy::Expanding, QSizePolicy::Fixed);
     main_layout->addItem(spacer);
+
+    main_layout->addWidget(filter_button, 0, Qt::AlignCenter);
+    main_layout->addWidget(filter);
     main_layout->addLayout(table_layout);
+
 
 
     setLayout(main_layout);
@@ -127,6 +140,10 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     connect(project_column_input, SIGNAL(returnPressed()), this, SLOT(projectColumnEntered()));
     // project number input signal
     connect(project_number_input, SIGNAL(returnPressed()), this, SLOT(projectNumberEntered()));
+    // filter button signal
+    connect(filter_button, SIGNAL(clicked()), this, SLOT(filterClicked()));
+    // filter signal
+    connect(filter, SIGNAL(itemSelectionChanged()), this, SLOT(filterChanged()));
 
     has_entered_column = false;
 }
@@ -142,6 +159,22 @@ void Window::importClicked() {
 
     //Loading Excel on another thread to prevent UI freezing
     QFuture<void> future = QtConcurrent::run(&Window::loadExcel, this);
+}
+
+void Window::filterClicked() {
+    if(row_display->isHidden() && project_display->isHidden()) {
+        row_display_label->show();
+        project_display_label->show();
+        row_display->show();
+        project_display->show();
+        filter->hide();
+    } else {
+        row_display_label->hide();
+        project_display_label->hide();
+        row_display->hide();
+        project_display->hide();
+        filter->show();
+    }
 }
 
 void Window::loadExcel() {
@@ -202,6 +235,7 @@ void Window::rowEntered() {
     if(table.empty()) {
        if(project_display->isHidden()) {
             spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
+            filter_button->hide();
        }
        row_display->hide();
        row_display_label->hide();
@@ -277,6 +311,7 @@ void Window::parseRow() {
         row_display->show();
         row_display_label->show();
     }
+    if(filter_button->isHidden()) filter_button->show();
 }
 
 void Window::projectColumnEntered() {
@@ -297,6 +332,14 @@ void Window::projectColumnEntered() {
     for(i=0; i< (int)input.size(); i++) {
         col = 26*col + colstr[i] - 'A' + 1;
     }
+    if(col > col_dimension || col < 1) {
+        QMessageBox error(this);
+        error.setText("Invalid project column input");
+        error.setIcon(QMessageBox::Warning);
+        error.setStandardButtons(QMessageBox::Ok);
+        error.exec();
+        return;
+    }
     project_column_number = col;
     has_entered_column = true;
 }
@@ -305,6 +348,7 @@ void Window::projectNumberEntered() {
     if(table.empty() || !has_entered_column) {
         if(row_display->isHidden()) {
             spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
+            filter_button->hide();
         }
         project_display->hide();
         project_display_label->hide();
@@ -356,12 +400,67 @@ void Window::parseProject() {
             ++match_counter;
         }
     }
+
     project_display->setColumnCount(match_counter + 1);
+    if(match_counter == 0) {
+        QMessageBox error(this);
+        error.setText("No matching project number found, please check if the project column and number are correct");
+        error.setIcon(QMessageBox::Warning);
+        error.setStandardButtons(QMessageBox::Ok);
+        error.exec();
+        return;
+    }
     spacer->changeSize(30, 30, QSizePolicy::Expanding, QSizePolicy::Fixed);
     if(project_display->isHidden()) {
         project_display->show();
         project_display_label->show();
     }
+    if(filter_button->isHidden()) filter_button->show();
+}
+
+void Window::filterChanged() {
+    qDebug() << "filtering";
+    QList<QListWidgetItem*> selections = filter->selectedItems();
+    // Filter row display
+    // Set all rows hidden
+    for( int i = 0; i < row_display->rowCount(); ++i )
+    {
+        row_display->setRowHidden(i, true);
+    }
+    // Find matching filter and show row
+    for(const auto selection : selections) {
+        QString filter = selection->text();
+        for( int i = 0; i < row_display->rowCount(); ++i )
+        {
+            QTableWidgetItem *item = row_display->item(i, 0);
+            if( item->text().contains(filter) )
+            {
+                row_display->setRowHidden(i, false);
+            }
+        }
+    }
+
+    // Filter project display
+    // Set all rows hidden
+    for( int i = 0; i < project_display->rowCount(); ++i )
+    {
+        project_display->setRowHidden(i, true);
+    }
+    // Find matching filter and show row
+    for(const auto selection : selections) {
+        QString filter = selection->text();
+        for( int i = 0; i < project_display->rowCount(); ++i )
+        {
+            QTableWidgetItem *item = row_display->item(i, 0);
+            if( item->text().contains(filter) )
+            {
+                project_display->setRowHidden(i, false);
+            }
+        }
+    }
+
+    if(row_display->isHidden()) row_display->hide();
+    if(project_display->isHidden()) project_display->hide();
 }
 
 

@@ -27,6 +27,8 @@ private slots:
     void rowEntered();
     void projectColumnEntered();
     void projectNumberEntered();
+    void filterClicked();
+    void filterChanged();
 private:
     // Widgets
     QPushButton *import_button;
@@ -41,6 +43,7 @@ private:
     QVBoxLayout *main_layout;
     QSpacerItem *spacer;
     QListWidget *filter;
+    QPushButton *filter_button;
     // Variables
     QString file_path;
     QString file_name;

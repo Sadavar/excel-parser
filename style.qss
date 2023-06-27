@@ -25,11 +25,27 @@ QPushButton#import_button {
   margin-top: 10px;
   outline: 0px;
 }
-QPushButton#import_button:hover,
-QPushButton#import_button:focus {
+QPushButton#import_button:hover {
   background-color: #0c203b;
   border: 3px solid #0c203b;
 }
+
+QPushButton#filter_button {
+  background-color: #fff;
+  color: #102B50;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #102B50;
+  padding: 5px 15px;
+  margin-top: 10px;
+  outline: 0px;
+}
+QPushButton#filter_button:hover {
+  background-color: #102B50;
+  border: 3px solid #102B50;
+  color: #fff;
+}
+
 QTableWidget{
 background-color: #fff;
 border-radius:8px;
