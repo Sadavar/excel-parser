@@ -68,6 +68,7 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     filter_button->setObjectName("filter_button");
     filter_button->setFixedHeight(40);
     filter_button->setMinimumWidth(100);
+    filter_button->hide();
     // Create filter
     filter = new QListWidget();
     filter->setSelectionMode(QAbstractItemView::MultiSelection);
@@ -79,13 +80,16 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     row_display->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     row_display_label = new QLabel("Row Search");
     row_display_label->setObjectName("row_display_label");
-
+    row_display->hide();
+    row_display_label->hide();
     // Create Project Table
     project_display = new QTableWidget();
     project_display->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     project_display->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     project_display_label = new QLabel("Project Search");
     project_display_label->setObjectName("project_display_label");
+    project_display->hide();
+    project_display_label->hide();
 
     //Creating layouts
     main_layout = new QVBoxLayout(this);
@@ -121,14 +125,12 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     main_layout->addLayout(row_input_layout);
     main_layout->addLayout(project_input_layout);
 
-    spacer = new QSpacerItem(30, 30, QSizePolicy::Expanding, QSizePolicy::Fixed);
+    spacer = new QSpacerItem(30, 30, QSizePolicy::Expanding, QSizePolicy::Expanding);
     main_layout->addItem(spacer);
 
     main_layout->addWidget(filter_button, 0, Qt::AlignCenter);
     main_layout->addWidget(filter);
     main_layout->addLayout(table_layout);
-
-
 
     setLayout(main_layout);
 
@@ -146,6 +148,8 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     connect(filter, SIGNAL(itemSelectionChanged()), this, SLOT(filterChanged()));
 
     has_entered_column = false;
+    using_row = false;
+    using_project = false;
 }
 
 void Window::importClicked() {
@@ -163,10 +167,14 @@ void Window::importClicked() {
 
 void Window::filterClicked() {
     if(row_display->isHidden() && project_display->isHidden()) {
-        row_display_label->show();
-        project_display_label->show();
-        row_display->show();
-        project_display->show();
+        if(using_row) {
+            row_display_label->show();
+            row_display->show();
+        }
+        if(using_project) {
+            project_display_label->show();
+            project_display->show();
+        }
         filter->hide();
     } else {
         row_display_label->hide();
@@ -232,24 +240,34 @@ void Window::importLoadingAnimation() {
 }
 
 void Window::rowEntered() {
+    if(!filter->isHidden()) {
+       return;
+    }
     if(table.empty()) {
        if(project_display->isHidden()) {
             spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
             filter_button->hide();
        }
+       if(using_project == false) filter_button->hide();
        row_display->hide();
        row_display_label->hide();
+       using_row = false;
        return;
     }
     std::string row_string =  row_input->text().toStdString();
     // input validation
     std::string temp = row_string;
     if(temp.empty()) {
+       if(!filter->isHidden()) {
+            return;
+       }
        if(project_display->isHidden()) {
             spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
        }
+       if(using_project == false) filter_button->hide();
        row_display->hide();
        row_display_label->hide();
+       using_row = false;
        return;
     }
     if(temp.find_first_not_of("0123456789, ") != std::string::npos)
@@ -305,13 +323,15 @@ void Window::parseRow() {
         }
     }
 
-    spacer->changeSize(30, 30, QSizePolicy::Fixed, QSizePolicy::Fixed);
+    if(!filter->isHidden()) return;
 
+    spacer->changeSize(30, 30, QSizePolicy::Fixed, QSizePolicy::Fixed);
     if(row_display->isHidden()) {
         row_display->show();
         row_display_label->show();
     }
     if(filter_button->isHidden()) filter_button->show();
+    using_row = true;
 }
 
 void Window::projectColumnEntered() {
@@ -345,22 +365,32 @@ void Window::projectColumnEntered() {
 }
 
 void Window::projectNumberEntered() {
+    if(!filter->isHidden()) {
+        return;
+    }
     if(table.empty() || !has_entered_column) {
         if(row_display->isHidden()) {
             spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
             filter_button->hide();
         }
+        if(using_row == false) filter_button->hide();
         project_display->hide();
         project_display_label->hide();
+        using_project = false;
         return;
     }
     QString input =  project_number_input->text();
     if(input.isEmpty()) {
+        if(!filter->isHidden()) {
+            return;
+        }
         if(row_display->isHidden()) {
             spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
         }
+        if(using_row == false) filter_button->hide();
         project_display->hide();
         project_display_label->hide();
+        using_project = false;
         return;
     }
 
@@ -410,52 +440,48 @@ void Window::parseProject() {
         error.exec();
         return;
     }
+    if(!filter->isHidden()) return;
     spacer->changeSize(30, 30, QSizePolicy::Expanding, QSizePolicy::Fixed);
     if(project_display->isHidden()) {
         project_display->show();
         project_display_label->show();
     }
     if(filter_button->isHidden()) filter_button->show();
+    using_project = true;
 }
 
 void Window::filterChanged() {
     qDebug() << "filtering";
     QList<QListWidgetItem*> selections = filter->selectedItems();
+    // Show all again if no selections
+    if(selections.size() == 0) {
+            for( int i = 0; i < row_display->rowCount(); ++i ) row_display->setRowHidden(i, false);
+            for( int i = 0; i < project_display->rowCount(); ++i ) project_display->setRowHidden(i, false);
+            return;
+    }
     // Filter row display
     // Set all rows hidden
-    for( int i = 0; i < row_display->rowCount(); ++i )
-    {
-        row_display->setRowHidden(i, true);
-    }
+    for( int i = 0; i < row_display->rowCount(); ++i ) row_display->setRowHidden(i, true);
     // Find matching filter and show row
-    for(const auto selection : selections) {
-        QString filter = selection->text();
+    for(const auto &selection : selections) {
+        const QString &filter = selection->text();
         for( int i = 0; i < row_display->rowCount(); ++i )
         {
             QTableWidgetItem *item = row_display->item(i, 0);
-            if( item->text().contains(filter) )
-            {
-                row_display->setRowHidden(i, false);
-            }
+            if(item->text().contains(filter)) row_display->setRowHidden(i, false);
         }
     }
 
     // Filter project display
     // Set all rows hidden
-    for( int i = 0; i < project_display->rowCount(); ++i )
-    {
-        project_display->setRowHidden(i, true);
-    }
+    for( int i = 0; i < project_display->rowCount(); ++i ) project_display->setRowHidden(i, true);
     // Find matching filter and show row
-    for(const auto selection : selections) {
-        QString filter = selection->text();
+    for(const auto &selection : selections) {
+        const QString &filter = selection->text();
         for( int i = 0; i < project_display->rowCount(); ++i )
         {
             QTableWidgetItem *item = row_display->item(i, 0);
-            if( item->text().contains(filter) )
-            {
-                project_display->setRowHidden(i, false);
-            }
+            if(item->text().contains(filter)) project_display->setRowHidden(i, false);
         }
     }
 

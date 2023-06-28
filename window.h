@@ -56,6 +56,8 @@ private:
     int project_column_number;
     QString project_number;
     QStringList header_list;
+    bool using_row;
+    bool using_project;
 };
 
 #endif // WINDOW_H
