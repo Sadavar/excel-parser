@@ -58,6 +58,7 @@ Window::Window(QWidget *parent) : QWidget(parent) {
     auto project_column_input_label = new QLabel("Project Column Letter:");
     project_column_input = new QLineEdit();
     project_column_input->setPlaceholderText("5");
+    project_column_input->setToolTip("The column in the Excel file where the project numbers can be found");
     //Create project number input
     auto project_number_input_label = new QLabel("Project Number:");
     project_number_input = new QLineEdit();
@@ -240,9 +241,7 @@ void Window::importLoadingAnimation() {
 }
 
 void Window::rowEntered() {
-    if(!filter->isHidden()) {
-       return;
-    }
+    if(!filter->isHidden()) return;
     if(table.empty()) {
        if(project_display->isHidden()) {
             spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -365,25 +364,25 @@ void Window::projectColumnEntered() {
 }
 
 void Window::projectNumberEntered() {
-    if(!filter->isHidden()) {
+    if(!filter->isHidden()) return;
+    if(table.empty()) {
+        QMessageBox error(this);
+        error.setText("Please import a file first");
+        error.setIcon(QMessageBox::Warning);
+        error.setStandardButtons(QMessageBox::Ok);
+        error.exec();
         return;
     }
-    if(table.empty() || !has_entered_column) {
-        if(row_display->isHidden()) {
-            spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
-            filter_button->hide();
-        }
-        if(using_row == false) filter_button->hide();
-        project_display->hide();
-        project_display_label->hide();
-        using_project = false;
+    if(!has_entered_column) {
+        QMessageBox error(this);
+        error.setText("Please select a project column first");
+        error.setIcon(QMessageBox::Warning);
+        error.setStandardButtons(QMessageBox::Ok);
+        error.exec();
         return;
     }
     QString input =  project_number_input->text();
     if(input.isEmpty()) {
-        if(!filter->isHidden()) {
-            return;
-        }
         if(row_display->isHidden()) {
             spacer->changeSize(10,10, QSizePolicy::Expanding, QSizePolicy::Expanding);
         }
@@ -399,8 +398,6 @@ void Window::projectNumberEntered() {
     const char* WhiteSpace = " \t\v\r\n";
     std::size_t end = input_string.find_last_not_of(WhiteSpace);
     input_string = input_string.substr(0, end+1);
-    qDebug() << "original: " << input;
-    qDebug() << "after: " << input_string;
 
     project_number = QString::fromStdString(input_string);
     parseProject();
@@ -484,9 +481,6 @@ void Window::filterChanged() {
             if(item->text().contains(filter)) project_display->setRowHidden(i, false);
         }
     }
-
-    if(row_display->isHidden()) row_display->hide();
-    if(project_display->isHidden()) project_display->hide();
 }
 
 
